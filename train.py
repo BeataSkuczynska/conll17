@@ -35,7 +35,7 @@ def prepare_data(path, test=0.1, max_len=None):
 def train_eval(values, config=config.params):
     poses_train, poses_test, parents_train, parents_test, labels_train, labels_test, max_len = values
     model = create_model(maxlen=max_len, params=config)
-    model.fit(poses_train, [parents_train, labels_train], epochs=10,
+    model.fit(poses_train, [parents_train, labels_train], epochs=1,
               validation_split=0.1,
               verbose=1)
 
@@ -64,4 +64,4 @@ def train(path, config=config.params, max_len=None):
 
 
 if __name__ == '__main__':
-    train("resources/ud-treebanks-v2.1/UD_Polish/pl-ud-dev.conllu")
+    train("resources/ud-treebanks-v2.1/UD_Polish/pl-ud-train.conllu")
