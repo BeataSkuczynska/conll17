@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.tar.gz
+**/data/
+*.idea/
+*.vector_cache/
+*.torch/
+**/venv/
+
+generated/model.h5
+resources/
