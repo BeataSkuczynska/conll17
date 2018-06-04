@@ -7,14 +7,14 @@ from constants import RELS_DICT, POS_DICT
 
 def create_model(maxlen, params):
     # maxlen = 38
-    no_of_poses = len(POS_DICT)
-    pos_input = Input(shape=(maxlen, no_of_poses,), name='pos')
-    poses = Reshape((maxlen, no_of_poses,))(pos_input)
+    no_of_input_features = len(POS_DICT) + 1
+    pos_input = Input(shape=(maxlen, no_of_input_features,), name='pos')
+    poses = Reshape((maxlen, no_of_input_features,))(pos_input)
     lstm = Bidirectional(params['rnn'](units=params['output_dim_rnn'], activation=params['activation_rnn'], return_sequences=True),
-                         input_shape=(maxlen, no_of_poses,))(poses)
+                         input_shape=(maxlen, no_of_input_features,))(poses)
     dropout = Dropout(params['dropout'])(lstm)
     out1 = Dense(maxlen, activation='sigmoid')(dropout)
-    out2 = Dense(len(RELS_DICT), activation='sigmoid')(dropout)
+    out2 = Dense(len(RELS_DICT) + 1, activation='sigmoid')(dropout)
 
     model = Model(inputs=[pos_input], outputs=[out1, out2])
 
