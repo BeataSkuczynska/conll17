@@ -65,3 +65,5 @@ def train(path, config=config.params, max_len=None):
 
 if __name__ == '__main__':
     train("resources/ud-treebanks-v2.1/UD_Polish/pl-ud-train.conllu")
+
+# maxlen = ustawić stałą wartość, bo moga się trafić bardzo długie zdania i rozwalą kod
