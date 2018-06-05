@@ -28,9 +28,6 @@ def parse_data(path, max_len=None):
         sentence_length = len(sentence) + 1
         poses_s, parents_s, rels_s = [], [], []
         max_len_count = max(max_len_count, sentence_length)
-        zeros_vector_parents = np.zeros(sentence_length + 1)
-        zeros_vector_parents[-1] = 1
-        parents_s.append(zeros_vector_parents)
         for word in sentence:
             zeros_vector_pos = np.zeros(len(POS_DICT))
             zeros_vector_rels = np.zeros(len(RELS_DICT))

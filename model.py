@@ -6,7 +6,6 @@ from constants import RELS_DICT, POS_DICT
 
 
 def create_model(maxlen, params):
-    # maxlen = 38
     no_of_input_features = len(POS_DICT) + 1
     pos_input = Input(shape=(maxlen, no_of_input_features,), name='pos')
     poses = Reshape((maxlen, no_of_input_features,))(pos_input)

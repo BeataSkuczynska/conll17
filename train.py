@@ -15,7 +15,7 @@ from utils import chunks, save_conll
 
 def add_padding_feature(array3d):
     new_array3d = []
-    for idx, array2d in tqdm.tqdm(enumerate(array3d)):
+    for idx, array2d in tqdm.tqdm(enumerate(array3d), total=len(array3d)):
         zeros = np.zeros((len(array2d), 1))
         for idx, array in enumerate(array2d):
             if not array.any():
@@ -26,7 +26,7 @@ def add_padding_feature(array3d):
     return new_array3d
 
 
-def prepare_data(path, test=0.1, max_len=None, split=True):
+def prepare_data(path, test=0.1, max_len=None, split=False):
     poses, parents, rels, _ = parse_data(path, max_len)
     poses = add_padding_feature(pad_sequences(poses, maxlen=max_len, padding='post'))
     new_parents = []
@@ -53,7 +53,7 @@ def prepare_data(path, test=0.1, max_len=None, split=True):
 def train_eval(values, config=config.params):
     poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, max_len = values
     model = create_model(maxlen=max_len, params=config)
-    model.fit(poses_train, [parents_train, rels_train], epochs=1,
+    model.fit(poses_train, [parents_train, rels_train], epochs=30,
               validation_split=0.1,
               verbose=1)
 
@@ -77,21 +77,21 @@ def train_eval(values, config=config.params):
 
 
 def train(path_train, path_test, config=config.params, max_len=None):
-    poses_train, parents_train, rels_train, _ = prepare_data(path_train, test=0.1, max_len=max_len, split=False)
-    poses_test, parents_test, rels_test, _ = prepare_data(path_test, test=0.1, max_len=max_len, split=False)
+    poses_train, parents_train, rels_train, _ = prepare_data(path_train, test=0.1, max_len=max_len)
+    poses_test, parents_test, rels_test, _ = prepare_data(path_test, test=0.1, max_len=max_len)
     values = poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, max_len
     flat_predictions_parents, flat_predictions_rels = train_eval(values, config)
     return max_len, flat_predictions_parents, flat_predictions_rels
 
 
-def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data):
+def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, max_len):
     predict_parents_grouped = chunks(flat_predictions_parents, max_len)
     predict_rels_grouped = chunks(flat_predictions_rels, max_len)
 
     predicted_conll = []
     for gold_sentence, parents, rels in zip(test_data, predict_parents_grouped, predict_rels_grouped):
         predicted_sentence = []
-        for gold_token, parent, rel in zip(gold_sentence, parents[1:], rels[1:]):
+        for gold_token, parent, rel in zip(gold_sentence, parents, rels):
             cats = gold_token.strip().split("\t")
             cats[6] = str(parent)
             cats[7] = RELS_LIST[rel] if int(rel) < len(RELS_LIST) else RELS_LIST[-1]
@@ -101,7 +101,7 @@ def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_r
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run full cycle  of training and evaluating')
+    parser = argparse.ArgumentParser(description='Run full cycle of training and evaluating')
     parser.add_argument('input_train', help='Path to CONLL train file', type=str)
     parser.add_argument('input_test', help='Path to CONLL test file', type=str)
     parser.add_argument('--max_len', help='Maximal no of tokens in sentence', type=int, default=50)
@@ -109,4 +109,4 @@ if __name__ == '__main__':
 
     _, flat_predictions_parents, flat_predictions_rels = train(args.input_train, args.input_test, max_len=args.max_len)
     test_data = get_conll(args.input_test)
-    write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data)
+    write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, args.max_len)
