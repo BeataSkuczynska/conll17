@@ -1,5 +1,5 @@
 from keras import Input, Model
-from keras.layers import Bidirectional, Concatenate, Reshape, Flatten
+from keras.layers import Bidirectional, Reshape
 from keras.layers.core import Dense, Dropout
 
 from constants import RELS_DICT, POS_DICT
@@ -10,10 +10,11 @@ def create_model(maxlen, params):
     no_of_input_features = len(POS_DICT) + 1
     pos_input = Input(shape=(maxlen, no_of_input_features,), name='pos')
     poses = Reshape((maxlen, no_of_input_features,))(pos_input)
-    lstm = Bidirectional(params['rnn'](units=params['output_dim_rnn'], activation=params['activation_rnn'], return_sequences=True),
-                         input_shape=(maxlen, no_of_input_features,))(poses)
+    lstm = Bidirectional(
+        params['rnn'](units=params['output_dim_rnn'], activation=params['activation_rnn'], return_sequences=True),
+        input_shape=(maxlen, no_of_input_features,))(poses)
     dropout = Dropout(params['dropout'])(lstm)
-    out1 = Dense(maxlen, activation='sigmoid')(dropout)
+    out1 = Dense(maxlen+1, activation='sigmoid')(dropout)
     out2 = Dense(len(RELS_DICT) + 1, activation='sigmoid')(dropout)
 
     model = Model(inputs=[pos_input], outputs=[out1, out2])

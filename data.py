@@ -32,21 +32,21 @@ def parse_data(path, max_len=None):
         zeros_vector_parents[-1] = 1
         parents_s.append(zeros_vector_parents)
         for word in sentence:
-            zeros_vector_pos = np.zeros(len(POS_DICT) + 1)
-            zeros_vector_rels = np.zeros(len(RELS_DICT) + 1)
+            zeros_vector_pos = np.zeros(len(POS_DICT))
+            zeros_vector_rels = np.zeros(len(RELS_DICT))
             zeros_vector_parents = np.zeros(sentence_length)
             word_splitted = word.split("\t")
             pos = word_splitted[3]
             parent = word_splitted[6]
             parent = parent if parent != "_" else 0
             rel = word_splitted[7]
-            zeros_vector_pos[[POS_DICT[pos], -1]] = 1
+            zeros_vector_pos[POS_DICT[pos]] = 1
             poses_s.append(zeros_vector_pos)
             rel = rel.split(":")[0] if ":" in rel else rel
-            zeros_vector_rels[[RELS_DICT[rel], -1]] = 1
+            zeros_vector_rels[RELS_DICT[rel]] = 1
             rels_s.append(zeros_vector_rels)
 
-            zeros_vector_parents[[int(parent), -1]] = 1
+            zeros_vector_parents[int(parent)] = 1
 
             parents_s.append(zeros_vector_parents)
         poses.append(poses_s)

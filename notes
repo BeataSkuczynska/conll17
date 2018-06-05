@@ -1,0 +1,2 @@
+# maxlen = ustawić stałą wartość, bo moga się trafić bardzo długie zdania i rozwalą kod
+# dodać jedną kolumnę więcej do paddingu - będzie ona oznaczać, że dany token jest paddingiem, a nie słowem

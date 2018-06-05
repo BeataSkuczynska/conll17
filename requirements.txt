@@ -1,5 +1,7 @@
+tqdm
 scikit-learn
 keras
 numpy
 tensorflow
 pydot
+argparse
