@@ -53,7 +53,7 @@ def prepare_data(path, test=0.1, max_len=None, split=False):
 def train_eval(values, config=config.params):
     poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, max_len = values
     model = create_model(maxlen=max_len, params=config)
-    model.fit(poses_train, [parents_train, rels_train], epochs=30,
+    model.fit(poses_train, [parents_train, rels_train], epochs=config['epochs'],
               validation_split=0.1,
               verbose=1)
 
@@ -84,6 +84,16 @@ def train(path_train, path_test, config=config.params, max_len=None):
     return max_len, flat_predictions_parents, flat_predictions_rels
 
 
+def merge_long_sentences(predicted_conll, max_len):
+    new_predicted_conll = []
+    for sentence in predicted_conll:
+        if len(sentence[0].split("\t")[0]) > 1:
+            new_predicted_conll[-1].extend(sentence)
+        else:
+            new_predicted_conll.append(sentence)
+    return new_predicted_conll
+
+
 def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, max_len):
     predict_parents_grouped = chunks(flat_predictions_parents, max_len)
     predict_rels_grouped = chunks(flat_predictions_rels, max_len)
@@ -91,12 +101,16 @@ def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_r
     predicted_conll = []
     for gold_sentence, parents, rels in zip(test_data, predict_parents_grouped, predict_rels_grouped):
         predicted_sentence = []
+        idx = 1
         for gold_token, parent, rel in zip(gold_sentence, parents, rels):
             cats = gold_token.strip().split("\t")
+            cats[0] = str(idx) if idx > max_len else cats[0]
             cats[6] = str(parent)
             cats[7] = RELS_LIST[rel] if int(rel) < len(RELS_LIST) else RELS_LIST[-1]
             predicted_sentence.append("\t".join(cats))
+            idx += 1
         predicted_conll.append(predicted_sentence)
+    predicted_conll = merge_long_sentences(predicted_conll, max_len)
     save_conll(predicted_conll, 'generated/output.conllu')
 
 
@@ -108,5 +122,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     _, flat_predictions_parents, flat_predictions_rels = train(args.input_train, args.input_test, max_len=args.max_len)
-    test_data = get_conll(args.input_test)
+    test_data = get_conll(args.input_test, max_len=args.max_len)
     write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, args.max_len)
