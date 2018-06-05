@@ -107,7 +107,6 @@ if __name__ == '__main__':
     parser.add_argument('--max_len', help='Maximal no of tokens in sentence', type=int, default=50)
     args = parser.parse_args()
 
-    max_len = 50
     _, flat_predictions_parents, flat_predictions_rels = train(args.input_train, args.input_test, max_len=args.max_len)
     test_data = get_conll(args.input_test)
     write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data)

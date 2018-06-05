@@ -1,7 +1,8 @@
-tqdm
-scikit-learn
+argparse
 keras
 numpy
-tensorflow
 pydot
-argparse
+scikit-learn
+tensorflow
+tqdm
+
