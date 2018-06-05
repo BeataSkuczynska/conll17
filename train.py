@@ -53,7 +53,7 @@ def prepare_data(path, test=0.1, max_len=None, split=True):
 def train_eval(values, config=config.params):
     poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, max_len = values
     model = create_model(maxlen=max_len, params=config)
-    model.fit(poses_train, [parents_train, rels_train], epochs=1,
+    model.fit(poses_train, [parents_train, rels_train], epochs=10,
               validation_split=0.1,
               verbose=1)
 
@@ -64,9 +64,6 @@ def train_eval(values, config=config.params):
     print('Relations accuracy train: %f' % (rels_accuracy * 100))
 
     predictions_parents, predictions_rels = model.predict(poses_test, verbose=0)
-    # unpad = []
-    # for idx, val in enumerate(targets_test):
-    #     unpad.append(np.argmax(predictions[idx], axis=1).tolist())
     flat_predictions_parents = [np.argmax(i) for x in predictions_parents for i in x]
     flat_test_parents = [np.argmax(i) for x in parents_test for i in x]
     confusion_m = confusion_matrix(flat_test_parents, flat_predictions_parents)
@@ -104,14 +101,13 @@ def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_r
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run full cycle')
-    # parser.add_argument('input_path', help='Path to CONLL file', type=str)
-    parser.add_argument('--output_path', help='Path to save treehopper files', type=str, required=False)
+    parser = argparse.ArgumentParser(description='Run full cycle  of training and evaluating')
+    parser.add_argument('input_train', help='Path to CONLL train file', type=str)
+    parser.add_argument('input_test', help='Path to CONLL test file', type=str, required=False)
+    parser.add_argument('max_len', help='Maximal no of tokens in sentence', type=int, default=50)
     args = parser.parse_args()
 
     max_len = 50
-    _, flat_predictions_parents, flat_predictions_rels = train(
-        "resources/ud-treebanks-v2.1/UD_Polish/pl-ud-train.conllu",
-        "resources/ud-treebanks-v2.1/UD_Polish/pl-ud-test.conllu", max_len=max_len)
-    test_data = get_conll("resources/ud-treebanks-v2.1/UD_Polish/pl-ud-test.conllu")
+    _, flat_predictions_parents, flat_predictions_rels = train(args.input_train, args.input_test, max_len=args.max_len)
+    test_data = get_conll(args.input_test)
     write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data)
