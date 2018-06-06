@@ -87,7 +87,8 @@ def train(path_train, path_test, config=config.params, max_len=None):
 def merge_long_sentences(predicted_conll, max_len):
     new_predicted_conll = []
     for sentence in predicted_conll:
-        if len(sentence[0].split("\t")[0]) > 1:
+        first_token_id = sentence[0].split("\t")[0]
+        if len(first_token_id) > 1 and not "-" in first_token_id:
             new_predicted_conll[-1].extend(sentence)
         else:
             new_predicted_conll.append(sentence)
