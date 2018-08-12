@@ -7,4 +7,7 @@ params = {
     'activation_rnn': 'relu',
     'dropout': 0.5,
     'optimizer': 'adam',
+    'model_name': 'generated/zabawa.h5',
+    'predict_output_path': 'generated/output.conllu',
+    'emb_size': 50
 }
