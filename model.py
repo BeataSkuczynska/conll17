@@ -10,10 +10,10 @@ def create_model(emb, maxlen, params):
     pos_input = Input(shape=(maxlen, no_of_POS_features,), name='POS')
     poses = Reshape((maxlen, no_of_POS_features,))(pos_input)
 
-    emb_input = Input(shape=(maxlen,), name='emb_input')
+    emb_input = Input(shape=(maxlen, params['emb_size'],), name='emb_input')
     embedding = Embedding(emb.shape[0], params['emb_size'], input_length=maxlen, weights=[emb],
                           trainable=params['trainable_embeddings'])(emb_input)
-    concat = Concatenate(axis=-1)([embedding, poses])
+    concat = Concatenate(axis=-1)([emb_input, pos_input])
 
     lstm = Bidirectional(
         params['rnn'](units=params['output_dim_rnn'], activation=params['activation_rnn'], return_sequences=True),

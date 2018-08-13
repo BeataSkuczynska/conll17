@@ -15,8 +15,9 @@ def postprocess(flat_parents, flat_rels, parents, rels, test_data):
     flat_rels_grouped = chunks(flat_rels, MAX_LEN)
 
     iterator = 0
-    for sentence_flat_parents, sentence_flat_rels, sentence in zip(flat_parents_grouped, flat_parents_grouped, test_data):
+    for sentence_flat_parents, sentence_flat_rels, sentence in zip(flat_parents_grouped, flat_rels_grouped, test_data):
         relevant_sentence_flat_parents = sentence_flat_parents[:len(sentence)]
+
         if 0 not in relevant_sentence_flat_parents:
             parents_not_argmax = parents[iterator]
             rels_not_argmax = rels[iterator]
@@ -31,6 +32,8 @@ def postprocess(flat_parents, flat_rels, parents, rels, test_data):
 
 def predict(model, poses_test, test_data):
     predictions_parents, predictions_rels = model.predict(poses_test, verbose=0)
+
+    for s_parents
     flat_predictions_parents = [np.argmax(i) for x in predictions_parents for i in x]
 
     flat_predictions_rels = [np.argmax(i) for x in predictions_rels for i in x]
@@ -47,7 +50,7 @@ if __name__ == '__main__':
 
     model = load_model('generated/30_polevalTrainData_newRels_model.h5')
 
-    poses_test, parents_test, rels_test, _ = prepare_data(args.path_test, max_len=MAX_LEN)
+    poses_test, parents_test, rels_test, _ = prepare_data(args.path_test, max_len=MAX_LEN, vocab=True)
     test_data = get_conll(args.path_test, max_len=MAX_LEN)
     flat_predictions_parents, flat_predictions_rels = predict(model, poses_test, test_data)
 

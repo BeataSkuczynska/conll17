@@ -25,12 +25,16 @@ def get_conll(path, max_len=None):
     return parsed_all
 
 
-def parse_data(path, max_len=None):
+def parse_data(path, max_len=None, vocab=False):
     sentences = get_conll(path)
 
     max_len_count = 0
-    count_words = 0
-    word2idx = dict()
+    count_words = 1
+    if vocab:
+        with open('generated/vocab.json', 'r') as j:
+            word2idx = json.load(j)
+    else:
+        word2idx = dict()
     poses, parents, rels, orths = [], [], [], []
 
     for sentence in sentences:
@@ -49,7 +53,7 @@ def parse_data(path, max_len=None):
                 parent = word_splitted[6]
                 parent = parent if parent != "_" and int(parent) < max_len else 0
                 rel = word_splitted[7]
-                orth = word_splitted[1]
+                orth = word_splitted[1].lower()
 
                 zeros_vector_pos[POS_DICT[pos]] = 1
                 poses_s.append(zeros_vector_pos)
@@ -70,8 +74,9 @@ def parse_data(path, max_len=None):
             rels.append(rels_s)
             orths.append(orths_s)
 
-    with open("generated/vocab.json", "w+") as f:
-        json.dump(word2idx, f)
+    if not vocab:
+        with open("generated/vocab.json", "w+") as f:
+            json.dump(word2idx, f)
 
     if max_len is None:
         max_len = max_len_count

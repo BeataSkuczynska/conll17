@@ -3,7 +3,6 @@ import argparse
 import io
 import os
 import pickle
-
 import numpy as np
 import tqdm as tqdm
 from gensim.models import Word2Vec
@@ -56,12 +55,28 @@ def create_embeddings(emb, word2idx):
     return index2vec
 
 
-def prepare_data(path, emb, test=0.1, max_len=None, split=False):
-    poses, parents, rels, orths, word2idx, _ = parse_data(path, max_len)
+def get_embs(orths_padded, idx2vec, max_len):
+    array_3d = []
+    for id_s, orths_pad in enumerate(orths_padded):
+        array_2d = np.zeros((max_len, emb.vector_size))
+        for id_w, orth in enumerate(orths_pad):
+            array_2d[id_w] = idx2vec[orth]
+        array_3d.append(array_2d)
+    orths_arr = np.array(array_3d)
+    orths_padded = orths_arr
+    return orths_padded
 
-    idx2vec = create_embeddings(emb, word2idx)
-    with open("generated/embeddings.pkl", "wb") as f:
-        pickle.dump(idx2vec, f)
+
+def prepare_data(path, emb, test=0.1, max_len=None, split=False, vocab=False):
+    poses, parents, rels, orths, word2idx, _ = parse_data(path, max_len, vocab)
+
+    if not vocab:
+        idx2vec = create_embeddings(emb, word2idx)
+        with open("generated/embeddings.pkl", "wb") as f:
+            pickle.dump(idx2vec, f)
+    else:
+        with open("generated/embeddings.pkl", "rb") as f:
+            idx2vec = pickle.load(f)
 
     poses = add_padding_feature(pad_sequences(poses, maxlen=max_len, padding='post'))
     new_parents = []
@@ -72,6 +87,8 @@ def prepare_data(path, emb, test=0.1, max_len=None, split=False):
     parents = add_padding_feature(pad_sequences(new_parents, maxlen=max_len, padding='post'))
     rels = add_padding_feature(pad_sequences(rels, maxlen=max_len, padding='post'))
     orths_padded = pad_sequences(orths, maxlen=max_len, padding='post')
+
+    orths_padded = get_embs(orths_padded, idx2vec, max_len)
 
     if split:
         poses_train, poses_test, parents_train, parents_test, rels_train, rels_test = train_test_split(
@@ -104,7 +121,7 @@ def train_eval(values, config=config.params):
 
 def train(path_train, path_test, emb, config=config.params, max_len=None):
     poses_train, parents_train, rels_train, orths_train, _, idx2vec = prepare_data(path_train, emb, max_len=max_len)
-    poses_test, parents_test, rels_test, orths_test, _, _ = prepare_data(path_test, emb, max_len=max_len)
+    poses_test, parents_test, rels_test, orths_test, _, _ = prepare_data(path_test, emb, max_len=max_len, vocab=True)
     values = poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, orths_train, orths_test, idx2vec, max_len
     model = train_eval(values, config)
     return max_len, model, poses_test, orths_test
@@ -142,6 +159,7 @@ def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_r
 
 
 def predict(model, poses_test, orths_test):
+    print ("Sentences in test: " + str(len(poses_test)))
     predictions_parents, predictions_rels = model.predict([orths_test, poses_test], verbose=0)
     flat_predictions_parents = [np.argmax(i) for x in predictions_parents for i in x]
 
