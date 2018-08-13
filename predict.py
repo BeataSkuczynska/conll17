@@ -33,10 +33,9 @@ def postprocess(flat_parents, flat_rels, parents, rels, test_data):
 def predict(model, poses_test, test_data):
     predictions_parents, predictions_rels = model.predict(poses_test, verbose=0)
 
-    for s_parents
-    flat_predictions_parents = [np.argmax(i) for x in predictions_parents for i in x]
+    flat_predictions_parents = [i for x in predictions_parents for i in x]
 
-    flat_predictions_rels = [np.argmax(i) for x in predictions_rels for i in x]
+    flat_predictions_rels = [i for x in predictions_rels for i in x]
 
     return flat_predictions_parents, flat_predictions_rels
     # return postprocess(flat_predictions_parents, flat_predictions_rels, predictions_parents, predictions_rels, test_data)
@@ -48,10 +47,10 @@ if __name__ == '__main__':
     parser.add_argument('path_test', help='Path to CONLL test file', type=str)
     args = parser.parse_args()
 
-    model = load_model('generated/30_polevalTrainData_newRels_model.h5')
+    model = load_model('generated/model_30e.h5')
 
-    poses_test, parents_test, rels_test, _ = prepare_data(args.path_test, max_len=MAX_LEN, vocab=True)
+    poses_test, parents_test, rels_test, _ = prepare_data(args.path_test, max_len=MAX_LEN)
     test_data = get_conll(args.path_test, max_len=MAX_LEN)
     flat_predictions_parents, flat_predictions_rels = predict(model, poses_test, test_data)
 
-    write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, MAX_LEN, 'generated/output_predict_script_2.conllu')
+    write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, MAX_LEN, 'generated/output_test.conllu')

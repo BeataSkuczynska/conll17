@@ -25,24 +25,18 @@ def get_conll(path, max_len=None):
     return parsed_all
 
 
-def parse_data(path, max_len=None, vocab=False):
+def parse_data(path, max_len=None):
     sentences = get_conll(path)
 
     max_len_count = 0
-    count_words = 1
-    if vocab:
-        with open('generated/vocab.json', 'r') as j:
-            word2idx = json.load(j)
-    else:
-        word2idx = dict()
-    poses, parents, rels, orths = [], [], [], []
+    poses, parents, rels= [], [], []
 
     for sentence in sentences:
         sentence_length = len(sentence) + 1
 
         max_len_count = max(max_len_count, sentence_length) if max_len is None else 0
         for sentence_cut in chunks(sentence, max_len):
-            poses_s, parents_s, rels_s, orths_s = [], [], [], []
+            poses_s, parents_s, rels_s = [], [], []
             for word in sentence_cut:
                 zeros_vector_pos = np.zeros(len(POS_DICT))
                 zeros_vector_rels = np.zeros(len(RELS_DICT))
@@ -53,7 +47,6 @@ def parse_data(path, max_len=None, vocab=False):
                 parent = word_splitted[6]
                 parent = parent if parent != "_" and int(parent) < max_len else 0
                 rel = word_splitted[7]
-                orth = word_splitted[1].lower()
 
                 zeros_vector_pos[POS_DICT[pos]] = 1
                 poses_s.append(zeros_vector_pos)
@@ -64,21 +57,11 @@ def parse_data(path, max_len=None, vocab=False):
                 zeros_vector_parents[int(parent)] = 1
                 parents_s.append(zeros_vector_parents)
 
-                if orth not in word2idx:
-                    word2idx[orth] = count_words
-                    count_words += 1
-                orths_s.append(word2idx[orth])
-
             poses.append(poses_s)
             parents.append(parents_s)
             rels.append(rels_s)
-            orths.append(orths_s)
-
-    if not vocab:
-        with open("generated/vocab.json", "w+") as f:
-            json.dump(word2idx, f)
 
     if max_len is None:
         max_len = max_len_count
 
-    return poses, parents, rels, orths, word2idx, max_len
+    return poses, parents, rels, max_len

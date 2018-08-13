@@ -226,6 +226,8 @@ def load_conllu(file):
             # Check there is a single root node
             if len([word for word in ud.words[sentence_start:] if word.parent is None]) > 1:
                 multiple_root += 1
+                for word in ud.words[sentence_start:]:
+                    print(word.columns)
                 # print("There are multiple roots in a sentence")
                 # for word in ud.words[sentence_start:]:
                 #     print(word.columns)
@@ -288,7 +290,8 @@ def load_conllu(file):
             try:
                 head_id = int(columns[HEAD])
             except:
-                raise UDError("Cannot parse HEAD '{}'".format(_encode(columns[HEAD])))
+                print(columns)
+                raise UDError("Cannot parse HEAD '{}'".format(_encode(columns)))
             if head_id < 0:
                 raise UDError("HEAD cannot be negative")
 
