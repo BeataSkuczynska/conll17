@@ -1,9 +1,12 @@
 import argparse
 
 import io
+import os
+import pickle
+
 import numpy as np
 import tqdm as tqdm
-from gensim.models import KeyedVectors
+from gensim.models import Word2Vec
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.model_selection import train_test_split
 
@@ -16,7 +19,8 @@ from utils import chunks, save_conll
 
 def load_embeddings(embeddings_path):
     if os.path.isfile(embeddings_path + '.model'):
-        model = KeyedVectors.load(embeddings_path + ".model")
+        model = Word2Vec.load(embeddings_path + ".model")
+    return model
 
 
 def add_padding_feature(array3d):
@@ -32,8 +36,33 @@ def add_padding_feature(array3d):
     return new_array3d
 
 
-def prepare_data(path, test=0.1, max_len=None, split=False):
+def create_embeddings(emb, word2idx):
+    unk_count = 0
+    vocab_size = len(word2idx)
+    index2vec = np.zeros((vocab_size + 1, emb.vector_size), dtype="float32")
+    index2vec[0] = np.zeros(emb.vector_size)
+    for word in word2idx:
+        index = word2idx[word]
+        try:
+            index2vec[index] = emb[word]
+        except KeyError:
+            index2vec[index] = np.random.rand(emb.vector_size)
+            unk_count += 1
+
+    # print("emb vocab size: ", len(emb.vocabulary))
+    print("unknown words count: ", unk_count)
+    print("index2vec size: ", len(index2vec))
+    print("words  ", len(word2idx))
+    return index2vec
+
+
+def prepare_data(path, emb, test=0.1, max_len=None, split=False):
     poses, parents, rels, orths, word2idx, _ = parse_data(path, max_len)
+
+    idx2vec = create_embeddings(emb, word2idx)
+    with open("generated/embeddings.pkl", "wb") as f:
+        pickle.dump(idx2vec, f)
+
     poses = add_padding_feature(pad_sequences(poses, maxlen=max_len, padding='post'))
     new_parents = []
     for sentence in parents:
@@ -42,6 +71,7 @@ def prepare_data(path, test=0.1, max_len=None, split=False):
 
     parents = add_padding_feature(pad_sequences(new_parents, maxlen=max_len, padding='post'))
     rels = add_padding_feature(pad_sequences(rels, maxlen=max_len, padding='post'))
+    orths_padded = pad_sequences(orths, maxlen=max_len, padding='post')
 
     if split:
         poses_train, poses_test, parents_train, parents_test, rels_train, rels_test = train_test_split(
@@ -53,18 +83,18 @@ def prepare_data(path, test=0.1, max_len=None, split=False):
 
         return poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, max_len
     else:
-        return poses, parents, rels, max_len
+        return poses, parents, rels, orths_padded, max_len, idx2vec
 
 
 def train_eval(values, config=config.params):
-    poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, max_len = values
-    model = create_model(maxlen=max_len, params=config)
-    model.fit(poses_train, [parents_train, rels_train], epochs=config['epochs'],
+    poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, orths_train, orths_test, idx2vec, max_len = values
+    model = create_model(idx2vec, maxlen=max_len, params=config)
+    model.fit([orths_train, poses_train], [parents_train, rels_train], epochs=config['epochs'],
               validation_split=0.1,
-              verbose=1)
+              verbose=2)
 
-    loss, parents_loss, rels_loss, parents_accuracy, rels_accuracy = model.evaluate(poses_train,
-                                                                                    [parents_train, rels_train],
+    loss, parents_loss, rels_loss, parents_accuracy, rels_accuracy = model.evaluate([orths_test, poses_test],
+                                                                                    [parents_test, rels_test],
                                                                                     verbose=0)
     print('Parents accuracy train: %f' % (parents_accuracy * 100))
     print('Relations accuracy train: %f' % (rels_accuracy * 100))
@@ -72,12 +102,12 @@ def train_eval(values, config=config.params):
     return model
 
 
-def train(path_train, path_test, config=config.params, max_len=None):
-    poses_train, parents_train, rels_train, _ = prepare_data(path_train, max_len=max_len)
-    poses_test, parents_test, rels_test, _ = prepare_data(path_test, max_len=max_len)
-    values = poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, max_len
+def train(path_train, path_test, emb, config=config.params, max_len=None):
+    poses_train, parents_train, rels_train, orths_train, _, idx2vec = prepare_data(path_train, emb, max_len=max_len)
+    poses_test, parents_test, rels_test, orths_test, _, _ = prepare_data(path_test, emb, max_len=max_len)
+    values = poses_train, poses_test, parents_train, parents_test, rels_train, rels_test, orths_train, orths_test, idx2vec, max_len
     model = train_eval(values, config)
-    return max_len, model, poses_test
+    return max_len, model, poses_test, orths_test
 
 
 def merge_long_sentences(predicted_conll, max_len):
@@ -111,8 +141,8 @@ def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_r
     save_conll(predicted_conll, output_path)
 
 
-def predict(model, poses_test):
-    predictions_parents, predictions_rels = model.predict(poses_test, verbose=0)
+def predict(model, poses_test, orths_test):
+    predictions_parents, predictions_rels = model.predict([orths_test, poses_test], verbose=0)
     flat_predictions_parents = [np.argmax(i) for x in predictions_parents for i in x]
 
     flat_predictions_rels = [np.argmax(i) for x in predictions_rels for i in x]
@@ -135,15 +165,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run full cycle of training and evaluating')
     parser.add_argument('input_train', help='Path to CONLL train file', type=str)
     parser.add_argument('input_test', help='Path to CONLL test file', type=str)
+    parser.add_argument('emb', type=str, help='Embedding file path')
     parser.add_argument('--max_len', help='Maximal no of tokens in sentence', type=int, default=50)
     args = parser.parse_args()
 
-    emb = load_vectors('/home/b.skuczynska/Downloads/cc.pl.300.bin')
+    emb = load_embeddings(args.emb)
 
-    _, model, poses_test = train(args.input_train, args.input_test, max_len=args.max_len)
+    _, model, poses_test, orths_test = train(args.input_train, args.input_test, emb, max_len=args.max_len)
 
     model.save(config.params['model_name'])
 
-    flat_predictions_parents, flat_predictions_rels = predict(model, poses_test)
+    flat_predictions_parents, flat_predictions_rels = predict(model, poses_test, orths_test)
     test_data = get_conll(args.input_test, max_len=args.max_len)
     write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, args.max_len, config.params['predict_output_path'])

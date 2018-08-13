@@ -1,3 +1,4 @@
+gensim
 argparse
 keras
 numpy

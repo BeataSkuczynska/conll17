@@ -62,7 +62,7 @@ def parse_data(path, max_len=None):
 
                 if orth not in word2idx:
                     word2idx[orth] = count_words
-                    count_words +=1
+                    count_words += 1
                 orths_s.append(word2idx[orth])
 
             poses.append(poses_s)
