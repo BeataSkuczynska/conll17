@@ -1,4 +1,4 @@
-import json
+import codecs
 
 import numpy as np
 
@@ -7,7 +7,7 @@ from utils import chunks
 
 
 def get_conll(path, max_len=None):
-    with open(path) as f:
+    with codecs.open(path, "r", "utf-8") as f:
         parsed_all = []
         parsed_sent = []
         for line in f.readlines():
@@ -29,7 +29,7 @@ def parse_data(path, max_len=None):
     sentences = get_conll(path)
 
     max_len_count = 0
-    poses, parents, rels= [], [], []
+    poses, parents, rels = [], [], []
 
     for sentence in sentences:
         sentence_length = len(sentence) + 1

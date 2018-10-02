@@ -1,15 +1,12 @@
 import argparse
-
 import io
-import os
-import pickle
 import math
-from random import randint
+import os
 
 import numpy as np
 import tqdm as tqdm
-from collections import defaultdict
 from gensim.models import Word2Vec
+from keras.models import load_model
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.model_selection import train_test_split
 
@@ -17,6 +14,7 @@ import config
 from constants import RELS_LIST
 from data import parse_data, get_conll
 from model import create_model
+from postprocessing import resolve_roots, check_cycles
 from utils import chunks, save_conll
 
 
@@ -77,7 +75,7 @@ def prepare_data(path, test=0.1, max_len=None, split=False):
     poses = add_padding_feature(pad_sequences(poses, maxlen=max_len, padding='post'))
     new_parents = []
     for sentence in parents:
-        sentence = pad_sequences(sentence, maxlen=max_len, padding='post')
+        sentence = pad_sequences(sentence, maxlen=max_len + 1, padding='post')
         new_parents.append(sentence)
 
     parents = add_padding_feature(pad_sequences(new_parents, maxlen=max_len, padding='post'))
@@ -138,123 +136,9 @@ def unpad(flat_predictions, sentences_len):
     begin = 0
     while len(new_predictions) < len(sentences_len):
         new_predictions.append(flat_predictions[begin: begin + sentences_len[sent_counter]])
-        begin += 50 * math.ceil(sentences_len[sent_counter]/50)
+        begin += 50 * math.ceil(sentences_len[sent_counter] / 50)
         sent_counter += 1
     return new_predictions
-
-
-def resolve_roots(predicted_sentence, parents):
-    roots_list_id = []
-    root = 0
-    for id, word in enumerate(predicted_sentence):
-        if word[6] == "0":
-            roots_list_id.append(id)
-    if len(roots_list_id) == 0:
-        scores = np.array([word[0] for word in parents])
-        id_of_root = np.argmax(scores)
-        if "-" in predicted_sentence[id_of_root][0]:
-            scores[id_of_root] = 0.0
-            id_of_root = np.argmax(scores)
-        predicted_sentence[id_of_root][6] = "0"
-        predicted_sentence[id_of_root][7] = "root"
-        root = predicted_sentence[id_of_root][0]
-    elif len(roots_list_id) > 1:
-        # scores = []
-        # for potential_root in count_roots:
-        #     score = parents[potential_root][0]
-        #     scores.append(score)
-        scores = np.array([parents[potential_root][0] for potential_root in roots_list_id])
-        on_roots_list = np.argmax(scores)
-        id_of_root = roots_list_id[on_roots_list]
-        if "-" in predicted_sentence[id_of_root][0]:
-            scores[on_roots_list] = 0.0
-            on_roots_list = np.argmax(scores)
-            id_of_root = roots_list_id[on_roots_list]
-            if "-" in predicted_sentence[id_of_root][0]:
-                scores[on_roots_list] = 0.0
-                on_roots_list = np.argmax(scores)
-                id_of_root = roots_list_id[on_roots_list]
-                if "-" in predicted_sentence[id_of_root][0]:
-                    scores[on_roots_list] = 0.0
-                    on_roots_list = np.argmax(scores)
-                    id_of_root = roots_list_id[on_roots_list]
-                    if "-" in predicted_sentence[id_of_root][0]:
-                        scores[on_roots_list] = 0.0
-                        id_of_root = randint(0, len(predicted_sentence))
-        try:
-            root = predicted_sentence[id_of_root][0]
-        except IndexError:
-            print(predicted_sentence)
-        predicted_sentence[id_of_root][7] = "root"
-        if id_of_root in roots_list_id:
-            roots_list_id.remove(id_of_root)
-        for fake_root_id in roots_list_id:
-            predicted_sentence[fake_root_id][6] = str(root)
-            predicted_sentence[fake_root_id][7] = "_" if predicted_sentence[fake_root_id][7] in ["_", "root"] else predicted_sentence[fake_root_id][7]
-    else:
-        if "-" in predicted_sentence[roots_list_id[0]][0]:
-            scores = np.array([word[0] for word in parents])
-            id_of_root = np.argmax(scores)
-            if "-" in predicted_sentence[id_of_root][0]:
-                scores[id_of_root] = 0.0
-                id_of_root = np.argmax(scores)
-            predicted_sentence[id_of_root][6] = "0"
-            predicted_sentence[id_of_root][7] = "root"
-            root = predicted_sentence[id_of_root][0]
-        else:
-            id_of_root = roots_list_id[0]
-            root = predicted_sentence[id_of_root][0]
-    for word in predicted_sentence:
-        if word[6] == "_":
-            word[6] = str(root)
-
-    # return ["\t".join(word) for word in predicted_sentence]
-    return predicted_sentence, id_of_root
-
-
-def check_cycles(predicted_sentence, root_id):
-    graph = dict()
-    idxs = dict()
-    for id, word in enumerate(predicted_sentence):
-        idxs[word[0]] = id
-    for word in predicted_sentence:
-        if word[6] != "0":
-            if idxs[word[0]] in graph.keys():
-                krotka = graph[idxs[word[0]]]
-                graph[idxs[word[0]]] = krotka + (idxs[word[6]],)
-            else:
-                graph[idxs[word[0]]] = (idxs[word[6]],)
-
-    if cyclic(graph):
-        root_id_conll = predicted_sentence[root_id][0]
-        for id, word in enumerate(predicted_sentence):
-            if id != root_id:
-                predicted_sentence[id][6] = root_id_conll
-
-    return ["\t".join(word) for word in predicted_sentence]
-
-def cyclic(g):
-    """Return True if the directed graph g has a cycle.
-    g must be represented as a dictionary mapping vertices to
-    iterables of neighbouring vertices. For example:
-
-    >>> cyclic({1: (2,), 2: (3,), 3: (1,)})
-    True
-    >>> cyclic({1: (2,), 2: (3,), 3: (4,)})
-    False
-
-    """
-    path = set()
-
-    def visit(vertex):
-        path.add(vertex)
-        for neighbour in g.get(vertex, ()):
-            if neighbour in path or visit(neighbour):
-                return True
-        path.remove(vertex)
-        return False
-
-    return any(visit(v) for v in g)
 
 
 def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, max_len, output_path):
@@ -274,10 +158,9 @@ def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_r
             parent_id = np.argmax(parent)
             rel_id = np.argmax(rel)
             cats = gold_token.strip().split("\t")
-            if cats[1] == "Mądzika":
-                print ("tutaj")
 
-            cats[6] = str(parent_id) if parent_id <= len(gold_sentence) and parent_id <= int(gold_sentence[-1].split("\t")[0]) else "_"
+            cats[6] = str(parent_id) if parent_id <= len(gold_sentence) and parent_id <= int(
+                gold_sentence[-1].split("\t")[0]) else "_"
             cats[7] = RELS_LIST[rel_id] if rel_id < len(RELS_LIST) else RELS_LIST[-1]
             if "-" not in cats[0]:
                 if idx > max_len:
@@ -297,9 +180,9 @@ def write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_r
 def predict(model, poses_test):
     print("Sentences in test: " + str(len(poses_test)))
     predictions_parents, predictions_rels = model.predict(poses_test, verbose=0)
-    flat_predictions_parents = [np.argmax(i) for x in predictions_parents for i in x]
+    flat_predictions_parents = [i for x in predictions_parents for i in x]
 
-    flat_predictions_rels = [np.argmax(i) for x in predictions_rels for i in x]
+    flat_predictions_rels = [i for x in predictions_rels for i in x]
 
     return flat_predictions_parents, flat_predictions_rels
 
@@ -319,14 +202,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run full cycle of training and evaluating')
     parser.add_argument('input_train', help='Path to CONLL train file', type=str)
     parser.add_argument('input_test', help='Path to CONLL test file', type=str)
-    # parser.add_argument('emb', type=str, help='Embedding file path')
     parser.add_argument('--max_len', help='Maximal no of tokens in sentence', type=int, default=50)
+    parser.add_argument('-p', '--predict', help='Set this flag to perform only prediction without training.',
+                        action='store_true', default=False)
     args = parser.parse_args()
 
-    _, model, poses_test = train(args.input_train, args.input_test, max_len=args.max_len)
-
-    model.save(config.params['model_name'])
+    if args.predict:
+        model = load_model(config.params['model_name'])
+        poses_test, _, _, _ = prepare_data(args.input_test, max_len=args.max_len)
+    else:
+        _, model, poses_test = train(args.input_train, args.input_test, max_len=args.max_len)
 
     flat_predictions_parents, flat_predictions_rels = predict(model, poses_test)
     test_data = get_conll(args.input_test, max_len=args.max_len)
-    write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, args.max_len, config.params['predict_output_path'])
+    write_predicted_output_to_conll(flat_predictions_parents, flat_predictions_rels, test_data, args.max_len,
+                                    config.params['predict_output_path'])

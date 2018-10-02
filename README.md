@@ -1,11 +1,11 @@
-# CONLL Shared Task 2017
+# PolEval 2018 Shared Task 1(A)
 
 
 ### Installing
 
 Make sure you use Python 3.6
 
-Take language treebanks from this site https://lindat.mff.cuni.cz/repository/xmlui/handle/11234/1-2515 .
+Take data from poleval.pl/tasks
 Install requirements 
 
 ```
@@ -20,6 +20,7 @@ $ python train.py path_to_train_conll_file path_to_test_conll_file
 ```
 Optional arguments:
 ```
+-p            set this flag to only predict dependency tree for given CONLL-U file
 --max_len     change maximal number of tokens in sentence
 ```
 Also you can change RNN parameters in the `config.py` file.

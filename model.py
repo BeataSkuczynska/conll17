@@ -1,5 +1,5 @@
 from keras import Input, Model
-from keras.layers import Bidirectional, Reshape, Embedding, Concatenate
+from keras.layers import Bidirectional
 from keras.layers.core import Dense, Dropout
 
 from constants import RELS_DICT, POS_DICT
@@ -15,13 +15,12 @@ def create_model(maxlen, params):
 
     dropout = Dropout(params['dropout'])(lstm)
 
-    out1 = Dense(maxlen+1, activation='sigmoid', name='parents')(dropout)
+    out1 = Dense(maxlen + 2, activation='sigmoid', name='parents')(dropout)
     out2 = Dense(len(RELS_DICT) + 1, activation='sigmoid', name='relations')(dropout)
 
     model = Model(inputs=pos_input, outputs=[out1, out2])
 
     model.compile(optimizer=params['optimizer'], loss='binary_crossentropy', metrics=['acc'])
-    from keras.utils import plot_model
-    plot_model(model, to_file='generated/model.png', show_shapes=True)
+    # plot_model(model, to_file='generated/model.png', show_shapes=True)
     model.save(params['model_name'])
     return model
