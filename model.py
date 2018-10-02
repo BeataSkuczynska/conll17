@@ -21,6 +21,7 @@ def create_model(maxlen, params):
     model = Model(inputs=pos_input, outputs=[out1, out2])
 
     model.compile(optimizer=params['optimizer'], loss='binary_crossentropy', metrics=['acc'])
-    # plot_model(model, to_file='generated/model.png', show_shapes=True)
+    from keras.utils import plot_model
+    plot_model(model, to_file='generated/model.pdf', show_shapes=True)
     model.save(params['model_name'])
     return model
